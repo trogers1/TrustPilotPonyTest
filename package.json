@@ -1,16 +1,22 @@
 {
-  "name": "Test Project",
+  "name": "TestProject",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha --require ts-node/register ./src/**/*.test.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "mocha": "^8.3.2",
     "node-fetch": "^2.6.1",
-    "prettier": "^2.2.1"
+    "prettier": "^2.2.1",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.3"
+  },
+  "devDependencies": {
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^14.14.37"
   }
 }
