@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { Readable } from 'stream';
 import nock from 'nock';
-import { PonySaver } from './PonySaver';
+import PonySaver from './PonySaver';
 
 const exampleMazeResponse = require('./exampleMazeResponse.json');
 
@@ -34,7 +34,14 @@ describe('PonySaver', () => {
     it('Should correctly retrieve maze data', async () => {
       const mazeRunner = new PonySaver('Morning Glory', 15, 15, 1);
       await mazeRunner.createMaze();
-      await mazeRunner.getMazeData();
+      const mazeData = await mazeRunner.getMazeData();
+      assert.deepStrictEqual(mazeData, exampleMazeResponse);
+    });
+    it('Should correctly set maze data', async () => {
+      const mazeRunner = new PonySaver('Morning Glory', 15, 15, 1);
+      await mazeRunner.createMaze();
+      const mazeData = await mazeRunner.getMazeData();
+      mazeRunner.setMazeData(mazeData);
       assert.strictEqual(mazeRunner.ponyPosition, 121);
       assert.strictEqual(mazeRunner.domokunPosition, 65);
       assert.strictEqual(mazeRunner.endPoint, 70);
