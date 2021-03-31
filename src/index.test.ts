@@ -1,8 +1,8 @@
-const assert = require('assert');
-const index = require('./index');
+import assert from 'assert';
+import { main } from './index';
 
 describe('Main', () => {
   it('should return true', () => {
-    assert.equal(index.main(), true);
+    assert.strictEqual(main(), true);
   });
 });
