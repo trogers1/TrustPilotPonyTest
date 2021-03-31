@@ -1,3 +1,3 @@
-// const d = require('./d');
+import { readableToString } from './readableToString';
 
-module.exports = {};
+export { readableToString };
