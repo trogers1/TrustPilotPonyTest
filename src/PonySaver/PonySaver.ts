@@ -123,11 +123,30 @@ export default class PonySaver {
   }
 
   /**
-   * Taking a cell number position in the maze, calculate the x,y coordinate pair.
+   * Given a (zero-based) cell number position in the maze, calculate the x,y coordinate pair.
+   * Origin of grid is in the top left.
+   * Y axis starts at top left, descending by 1 for each row downward (e.g. -1, -2, -3... -(mazeHeight))
+   * X axis starts at the top left and ascending by 1 for each column to the right, (e.g. 1, 2, 4...mazeWidth)
+   * Formulas for finding P (position), X and Y:
+
+   * X = P % mazeWidth
+   * Y = -1 * (((P - (X - 1)) / mazeWidth) + 1)
+   * P = (X - 1) + (-Y - 1) * mazeWidth
+   *
    * @param position A position within the maze
    * @returns A CoordinatePair that has zero-based coordinates
    */
   positionToCoordinates(position: number): CoordinatePair {
+    /*
+    Formulas for finding P (position), X and Y
+    Origin of grid is in the top left.
+    Y axis starts at top left, descending by 1 for each row downward
+    X axis starts at the top left and ascending by 1 for each column to the right
+
+    X = P % mazeWidth
+    Y = -1 * (((P - (X - 1)) / mazeWidth) + 1)
+    P = (X - 1) + (-Y - 1) * mazeWidth
+    */
     if (!this.maze) {
       throw new Error(
         'Cannot calculate coordinates without a maze. Please set maze data.'
@@ -140,9 +159,8 @@ export default class PonySaver {
         }. Got: ${position}`
       );
     }
-    const x = position < this.mazeWidth ? position : position % this.mazeWidth;
-    const row = Math.ceil((position + 1) / this.mazeWidth); // 'row' is the row of the maze, 1-based, from top to bottom
-    const y = this.mazeHeight - row;
+    const x = (position % this.mazeWidth) + 1;
+    const y = Math.ceil(-1 * ((position - (x - 1)) / this.mazeWidth + 1));
     return {
       y,
       x,
@@ -150,7 +168,16 @@ export default class PonySaver {
   }
 
   /**
-   * Given an x,y coordinate pair, return the cell position in the maze
+   * Given a coordinate pair, calculate the (zero-based) position in the maze.
+   * Origin of grid is in the top left.
+   * Y axis starts at top left, descending by 1 for each row downward (e.g. -1, -2, -3... -(mazeHeight))
+   * X axis starts at the top left and ascending by 1 for each column to the right, (e.g. 1, 2, 4...mazeWidth)
+   * Formulas for finding P (position), X and Y:
+
+   * X = P % mazeWidth
+   * Y = -1 * (((P - (X - 1)) / mazeWidth) + 1)
+   * P = (X - 1) + (-Y - 1) * mazeWidth
+   *
    * @param coordinates An x,y coordinate pair within the maze
    * @returns A position within the maze (zero-based)
    */
@@ -174,9 +201,7 @@ export default class PonySaver {
         }. Got: ${y}`
       );
     }
-    const row = this.mazeHeight - y; // 'row' is the row of the maze, 1-based, from top to bottom
-
-    return (row - 1) * this.mazeWidth + x;
+    return x - 1 + (-y - 1) * this.mazeWidth;
   }
 
   findPaths() {
