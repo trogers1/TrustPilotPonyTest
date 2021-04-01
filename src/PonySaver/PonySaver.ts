@@ -12,6 +12,15 @@ export type MazeResponse = {
   size: number[];
   difficulty: number;
   data: MazePosition[];
+  maze_id: 'string';
+  'game-state': {
+    state: string;
+    'state-result': string;
+  };
+};
+export type CoordinatePair = {
+  x: number;
+  y: number;
 };
 
 /* Handle:
@@ -91,6 +100,7 @@ export default class PonySaver {
     this.mazeWidth = data.size[0];
     this.mazeHeight = data.size[1];
     this.difficulty = data.difficulty;
+    this.mazeId = data.maze_id;
   }
 
   async getMazeData() {
@@ -112,9 +122,87 @@ export default class PonySaver {
     return json;
   }
 
-  findPaths() {}
+  /**
+   * Taking a cell number position in the maze, calculate the x,y coordinate pair.
+   * @param position A position within the maze
+   * @returns A CoordinatePair that has zero-based coordinates
+   */
+  positionToCoordinates(position: number): CoordinatePair {
+    if (!this.maze) {
+      throw new Error(
+        'Cannot calculate coordinates without a maze. Please set maze data.'
+      );
+    }
+    if (position < 0 || position >= this.maze.length) {
+      throw new Error(
+        `Position is not within the maze. Valid positions: 0-${
+          this.maze.length - 1
+        }. Got: ${position}`
+      );
+    }
+    const x = position < this.mazeWidth ? position : position % this.mazeWidth;
+    const row = Math.ceil((position + 1) / this.mazeWidth); // 'row' is the row of the maze, 1-based, from top to bottom
+    const y = this.mazeHeight - row;
+    return {
+      y,
+      x,
+    };
+  }
+
+  /**
+   * Given an x,y coordinate pair, return the cell position in the maze
+   * @param coordinates An x,y coordinate pair within the maze
+   * @returns A position within the maze (zero-based)
+   */
+  coordinatesToPosition({ x, y }: CoordinatePair): number {
+    if (!this.maze) {
+      throw new Error(
+        'Cannot calculate position without a maze. Please set maze data.'
+      );
+    }
+    if (x < 0 || x >= this.mazeWidth) {
+      throw new Error(
+        `X Coordinate is not within the maze. Valid positions: 0-${
+          this.mazeHeight * this.mazeWidth - 1
+        }. Got: ${x}`
+      );
+    }
+    if (y < 0 || y >= this.mazeHeight) {
+      throw new Error(
+        `Y Coordinate is not within the maze. Valid positions: 0-${
+          this.mazeHeight * this.mazeWidth - 1
+        }. Got: ${y}`
+      );
+    }
+    const row = this.mazeHeight - y; // 'row' is the row of the maze, 1-based, from top to bottom
+
+    return (row - 1) * this.mazeWidth + x;
+  }
+
+  findPaths() {
+    console.log(
+      'Pony location',
+      this.positionToCoordinates(this.ponyPosition),
+      this.maze[this.ponyPosition]
+    );
+    console.log(
+      'End location',
+      this.positionToCoordinates(this.endPoint),
+      this.maze[this.endPoint]
+    );
+    console.log(
+      'Domokun location',
+      this.positionToCoordinates(this.domokunPosition),
+      this.maze[this.domokunPosition]
+    );
+  }
 
   async print() {
+    if (!this.mazeId) {
+      throw new Error(
+        RedFg('Cannot print an unknown maze. Please set mazeId.')
+      );
+    }
     let response = await fetch(
       `https://ponychallenge.trustpilot.com/pony-challenge/maze/${this.mazeId}/print`,
       { method: 'GET' }
@@ -130,6 +218,6 @@ export default class PonySaver {
         )
       );
     }
-    console.log(JSON.stringify(body));
+    console.log(body);
   }
 }
