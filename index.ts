@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 import PonySaver, { MazeResponse } from './src/PonySaver';
-import exampleMaze from './src/exampleMaze.json';
+import exampleMaze from './src/PonySaver/exampleMaze.json';
 
-export const main = () => {
+export const main = async () => {
   const mazeRunner = new PonySaver('Morning Glory', 15, 15, 1);
   mazeRunner.setMazeData(exampleMaze as MazeResponse);
-  mazeRunner.print();
+  await mazeRunner.print();
+  mazeRunner.findPaths();
 };
 
 if (!process.argv[1].endsWith('mocha')) {
-  console.log(process.argv);
-  console.log(process.execPath);
-  console.log(process.argv0);
   main();
 }

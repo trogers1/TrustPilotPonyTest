@@ -187,18 +187,15 @@ export default class PonySaver {
         'Cannot calculate position without a maze. Please set maze data.'
       );
     }
-    if (x < 0 || x >= this.mazeWidth) {
+    if (x < 1 || x > this.mazeWidth) {
       throw new Error(
-        `X Coordinate is not within the maze. Valid positions: 0-${
-          this.mazeHeight * this.mazeWidth - 1
-        }. Got: ${x}`
+        `X Coordinate is not within the maze. Valid values: 1-${this.mazeWidth}. Got: ${x}`
       );
     }
-    if (y < 0 || y >= this.mazeHeight) {
+    if (y > -1 || y < -this.mazeHeight) {
       throw new Error(
-        `Y Coordinate is not within the maze. Valid positions: 0-${
-          this.mazeHeight * this.mazeWidth - 1
-        }. Got: ${y}`
+        `Y Coordinate is not within the maze. Valid values: -1 -> ${-this
+          .mazeHeight}. Got: ${y}`
       );
     }
     return x - 1 + (-y - 1) * this.mazeWidth;
