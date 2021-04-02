@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import { readableToString } from './readableToString';
 
 describe('readableToString', () => {
-  it('should turn a ReadableStream object into a string', async () => {
+  it('Should turn a ReadableStream object into a string', async () => {
     const expected =
       'This string will be turned into a NodeJS.ReadableStream, then into a string.';
     const readable = Readable.from(expected, {
