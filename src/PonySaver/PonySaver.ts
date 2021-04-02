@@ -61,15 +61,7 @@ export default class PonySaver {
     );
     if (!response.ok) {
       const body = await readableToString(response.body);
-      console.log(
-        'sent',
-        JSON.stringify({
-          'maze-player-name': this.playerName,
-          'maze-height': this.mazeHeight,
-          'maze-width': this.mazeWidth,
-          difficulty: this.difficulty,
-        })
-      );
+
       throw new Error(
         RedFg(
           `Unsuccessful request to create maze. Result:\n${RedFg_Bright(body)}`
@@ -99,7 +91,6 @@ export default class PonySaver {
     );
     if (!response.ok) {
       const body = await readableToString(response.body);
-      console.log('Sent:', this.mazeId);
       throw new Error(
         RedFg(
           `Unsuccessful request to GET maze. Result:\n${RedFg_Bright(body)}`
