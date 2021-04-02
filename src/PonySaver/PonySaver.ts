@@ -239,6 +239,37 @@ export default class PonySaver {
     };
   }
 
+  getRelativeDirection(position1: number, position2: number) {
+    const coords1 = this.positionToCoordinates(position1),
+      coords2 = this.positionToCoordinates(position2);
+    const diffX = coords1.x - coords2.x,
+      diffY = coords1.y - coords2.y;
+    if (Math.abs(diffX) !== 1 && Math.abs(diffY) !== 1) {
+      throw new Error(
+        RedFg(
+          `Relative Directions are only calculated for adjacent positions. \nPosition 1: ${RedFg_Bright(
+            position1.toString()
+          )} (${JSON.stringify(coords1)})\nPosition 2: ${RedFg_Bright(
+            position2.toString()
+          )} (${JSON.stringify(coords2)})`
+        )
+      );
+    }
+    if (diffX === 1) {
+      return 'west';
+    }
+    if (diffX === -1) {
+      return 'east';
+    }
+    if (diffY === 1) {
+      return 'south';
+    }
+    if (diffY === -1) {
+      return 'north';
+    }
+  }
+  getNextPathStep() {}
+
   findPaths() {
     console.log(
       'Pony location',
@@ -256,6 +287,12 @@ export default class PonySaver {
       this.maze[this.domokunPosition]
     );
   }
+
+  chooseNextMove() {
+    it.skip('Should choose no move if on the end point', async () => {});
+    it.skip('Should choose a step away from domokun if valid path isn not found', async () => {});
+  }
+  makeMove() {}
 
   async print() {
     if (!this.mazeId) {
