@@ -1,27 +1,16 @@
 import fetch from 'node-fetch';
 import { readableToString, colors } from '../utils';
+import PositionError from '../PositionError';
 
 const { RedFg, RedFg_Bright } = colors;
 
-export type WallPosition = 'west' | 'north';
-export type MazePosition = WallPosition[];
-export type MazeResponse = {
-  pony: number[];
-  domokun: number[];
-  'end-point': number[];
-  size: number[];
-  difficulty: number;
-  data: MazePosition[];
-  maze_id: 'string';
-  'game-state': {
-    state: string;
-    'state-result': string;
-  };
-};
-export type CoordinatePair = {
-  x: number;
-  y: number;
-};
+import {
+  WallPosition,
+  MazePosition,
+  MazeResponse,
+  CoordinatePair,
+  ValidDirections,
+} from './types';
 
 /* Handle:
 - Game no longer active
@@ -32,6 +21,7 @@ export type CoordinatePair = {
 - Panic mode (run away from domokun)
   - determine opposite direction
   - prioritize paths going the opposite direction
+- S & E edges == autoEdge
 */
 
 export default class PonySaver {
@@ -153,11 +143,7 @@ export default class PonySaver {
       );
     }
     if (position < 0 || position >= this.maze.length) {
-      throw new Error(
-        `Position is not within the maze. Valid positions: 0-${
-          this.maze.length - 1
-        }. Got: ${position}`
-      );
+      throw new PositionError(position, this.maze.length);
     }
     const x = (position % this.mazeWidth) + 1;
     const y = Math.ceil(-1 * ((position - (x - 1)) / this.mazeWidth + 1));
@@ -199,6 +185,58 @@ export default class PonySaver {
       );
     }
     return x - 1 + (-y - 1) * this.mazeWidth;
+  }
+
+  findValidDirections(position: number): ValidDirections {
+    if (position < 0 || position >= this.maze.length) {
+      throw new PositionError(position, this.maze.length);
+    }
+    const coords = this.positionToCoordinates(position);
+    const directionPositions = {
+      north: position - this.mazeWidth,
+      south: position + this.mazeWidth,
+      east: position + 1,
+      west: position - 1,
+    };
+    let isDomokunPosition: ValidDirections = {
+      north: false,
+      south: false,
+      east: false,
+      west: false,
+    };
+    switch (this.domokunPosition) {
+      case directionPositions.north:
+        isDomokunPosition.north = true;
+        break;
+      case directionPositions.south:
+        isDomokunPosition.south = true;
+        break;
+      case directionPositions.east:
+        isDomokunPosition.east = true;
+        break;
+      case directionPositions.west:
+        isDomokunPosition.west = true;
+        break;
+    }
+
+    return {
+      north:
+        isDomokunPosition.north || coords.y === -1
+          ? false
+          : !this.maze[position].includes('north'),
+      south:
+        isDomokunPosition.south || coords.y === -this.mazeHeight
+          ? false
+          : !this.maze[position + this.mazeWidth].includes('north'),
+      east:
+        isDomokunPosition.east || coords.x === this.mazeHeight
+          ? false
+          : !this.maze[position + 1].includes('west'),
+      west:
+        isDomokunPosition.west || coords.x === 1
+          ? false
+          : !this.maze[position].includes('west'),
+    };
   }
 
   findPaths() {
