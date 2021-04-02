@@ -1,5 +1,6 @@
 export type WallPosition = 'west' | 'north';
 export type MazePosition = WallPosition[];
+export type GameStates = 'won' | 'over' | 'Active' | 'active';
 export type MazeResponse = {
   pony: number[];
   domokun: number[];
@@ -9,7 +10,7 @@ export type MazeResponse = {
   data: MazePosition[];
   maze_id: 'string';
   'game-state': {
-    state: string;
+    state: GameStates;
     'state-result': string;
   };
 };

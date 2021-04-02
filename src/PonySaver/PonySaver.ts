@@ -2,29 +2,15 @@ import fetch from 'node-fetch';
 import { readableToString, colors } from '../utils';
 import PositionError from '../PositionError';
 
-const { RedFg, RedFg_Bright } = colors;
+const { Bright, CyanFg_Bright, YellowFg, RedFg, RedFg_Bright } = colors;
 
 import {
-  WallPosition,
   MazePosition,
   MazeResponse,
   CoordinatePair,
-  ValidDirections,
-  Path,
   GridNode,
+  GameStates,
 } from './types';
-
-/* Handle:
-- Game no longer active
-- No routes found
-  - None exist
-  - domukun blocks all paths
-  - Maybe head in the direction
-- Panic mode (run away from domokun)
-  - determine opposite direction
-  - prioritize paths going the opposite direction
-- S & E edges == autoEdge
-*/
 
 export default class PonySaver {
   playerName: string;
@@ -36,34 +22,19 @@ export default class PonySaver {
   domokunPosition!: number;
   endPoint!: number;
   maze!: MazePosition[];
-  // grid: GridNode[][];
-  autoPrint: boolean;
+  path!: number[];
+  gameState!: GameStates;
 
   constructor(
     playerName: string,
     mazeHeight: number,
     mazeWidth: number,
-    difficulty: number,
-    autoPrint = false
+    difficulty: number
   ) {
     this.playerName = playerName;
     this.mazeHeight = mazeHeight;
     this.mazeWidth = mazeWidth;
     this.difficulty = difficulty;
-    this.autoPrint = autoPrint;
-    // this.grid = [];
-    // for (let y = 1; y <= mazeHeight; y++) {
-    //   this.grid.push([]);
-    //   for (let x = 1; x <= mazeWidth; x++) {
-    //     this.grid[y].push({
-    //       position: null,
-    //       gx: Infinity,
-    //       hx: Infinity,
-    //       fx: Infinity,
-    //       parent: null,
-    //     });
-    //   }
-    // }
   }
 
   async loadMaze(mazeId: string) {
@@ -76,6 +47,10 @@ export default class PonySaver {
       'https://ponychallenge.trustpilot.com/pony-challenge/maze',
       {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({
           'maze-player-name': this.playerName,
           'maze-height': this.mazeHeight,
@@ -86,7 +61,15 @@ export default class PonySaver {
     );
     if (!response.ok) {
       const body = await readableToString(response.body);
-
+      console.log(
+        'sent',
+        JSON.stringify({
+          'maze-player-name': this.playerName,
+          'maze-height': this.mazeHeight,
+          'maze-width': this.mazeWidth,
+          difficulty: this.difficulty,
+        })
+      );
       throw new Error(
         RedFg(
           `Unsuccessful request to create maze. Result:\n${RedFg_Bright(body)}`
@@ -94,7 +77,6 @@ export default class PonySaver {
       );
     }
     const json: Record<string, string> = await response.json();
-
     this.mazeId = json.maze_id;
   }
 
@@ -107,6 +89,7 @@ export default class PonySaver {
     this.mazeHeight = data.size[1];
     this.difficulty = data.difficulty;
     this.mazeId = data.maze_id;
+    this.gameState = data['game-state'].state;
   }
 
   async getMazeData() {
@@ -116,7 +99,7 @@ export default class PonySaver {
     );
     if (!response.ok) {
       const body = await readableToString(response.body);
-
+      console.log('Sent:', this.mazeId);
       throw new Error(
         RedFg(
           `Unsuccessful request to GET maze. Result:\n${RedFg_Bright(body)}`
@@ -382,13 +365,54 @@ export default class PonySaver {
     return [];
   }
 
-  chooseNextMove() {
-    it.skip('Should choose no move if on the end point', async () => {});
-    it.skip('Should choose a step away from domokun if valid path isn not found', async () => {});
+  async makeMove() {
+    if (this.gameState !== 'Active' && this.gameState !== 'active') {
+      throw new Error(RedFg('Game is over. Cannot make anymore moves.'));
+    }
+    this.setMazeData(await this.getMazeData());
+    this.path = this.findPath();
+    let nextMove = this.path[0];
+    if (!nextMove) {
+      // PANIC!
+      nextMove = this.findValidNextPositions(this.ponyPosition, true)[0];
+      console.log(
+        "Couldn't find a next move! Going with:",
+        JSON.stringify(this.positionToCoordinates(nextMove)),
+        'from ',
+        JSON.stringify(this.positionToCoordinates(this.ponyPosition))
+      );
+    }
+
+    let response = await fetch(
+      `https://ponychallenge.trustpilot.com/pony-challenge/maze/${this.mazeId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          direction: this.getRelativeDirection(this.ponyPosition, nextMove),
+        }),
+      }
+    );
+    if (!response.ok) {
+      const body = await readableToString(response.body);
+      throw new Error(
+        RedFg(
+          `Unsuccessful request to move in the maze. Result:\n${RedFg_Bright(
+            body
+          )}`
+        )
+      );
+    }
+    const json = await response.json();
+    this.gameState = json.state || json['game-state'].state;
   }
-  makeMove() {}
 
   async print() {
+    // Wait for a second for last update to complete.
+    await setTimeout(() => true, 2000);
     if (!this.mazeId) {
       throw new Error(
         RedFg('Cannot print an unknown maze. Please set mazeId.')
@@ -409,6 +433,8 @@ export default class PonySaver {
         )
       );
     }
-    console.log(body);
+    console.log(Bright('='.repeat(80)));
+    console.log('Maze ID:', CyanFg_Bright(this.mazeId));
+    console.log(YellowFg(body));
   }
 }
