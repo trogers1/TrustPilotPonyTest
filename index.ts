@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node-script
 'use strict';
 import PonySaver, { MazeResponse } from './src/PonySaver';
 import exampleMaze from './src/PonySaver/exampleMaze.json';
