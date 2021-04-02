@@ -11,6 +11,7 @@ import {
   CoordinatePair,
   ValidDirections,
   Path,
+  GridNode,
 } from './types';
 
 /* Handle:
@@ -35,6 +36,7 @@ export default class PonySaver {
   domokunPosition!: number;
   endPoint!: number;
   maze!: MazePosition[];
+  // grid: GridNode[][];
   autoPrint: boolean;
 
   constructor(
@@ -49,6 +51,19 @@ export default class PonySaver {
     this.mazeWidth = mazeWidth;
     this.difficulty = difficulty;
     this.autoPrint = autoPrint;
+    // this.grid = [];
+    // for (let y = 1; y <= mazeHeight; y++) {
+    //   this.grid.push([]);
+    //   for (let x = 1; x <= mazeWidth; x++) {
+    //     this.grid[y].push({
+    //       position: null,
+    //       gx: Infinity,
+    //       hx: Infinity,
+    //       fx: Infinity,
+    //       parent: null,
+    //     });
+    //   }
+    // }
   }
 
   async loadMaze(mazeId: string) {
@@ -178,7 +193,7 @@ export default class PonySaver {
     return x - 1 + (-y - 1) * this.mazeWidth;
   }
 
-  findValidNextPositions(position: number): number[] {
+  findValidNextPositions(position: number, isDomokunOrPanic = false): number[] {
     if (position < 0 || position >= this.maze.length) {
       throw new PositionError(position, this.maze.length);
     }
@@ -189,49 +204,73 @@ export default class PonySaver {
       east: position + 1,
       west: position - 1,
     };
+
+    // Invalid positions are the domokun's valid next position, and all positions adjacent
+    // UNLESS we are checking the domokun's valid positions.
+    let invalidPositions =
+      !this.domokunPosition || isDomokunOrPanic
+        ? []
+        : [
+            this.domokunPosition,
+            ...this.findValidNextPositions(this.domokunPosition, true),
+          ];
+    // If any of the invalidPositions are the endPoint, make them valid again. Always try for the endpoint
+    // The only exception is if the invalid point is Domokun's position. If he's standing on the endpoint, it's invalid
+    invalidPositions = invalidPositions.filter(
+      (pos) => pos !== this.endPoint || pos === this.domokunPosition
+    );
     const possibleDirectionPositions = [];
     if (
-      directionPositions.north !== this.domokunPosition &&
-      coords.y !== -1 &&
-      !this.maze[position].includes('north')
+      !invalidPositions.includes(directionPositions.north) &&
+      coords.y !== -1 && // At an edge
+      !this.maze[position].includes('north') // There's a wall
     ) {
       possibleDirectionPositions.push(directionPositions.north); // north is available
     }
     if (
-      directionPositions.east !== this.domokunPosition &&
-      coords.x !== this.mazeWidth &&
-      !this.maze[position + 1].includes('west')
+      !invalidPositions.includes(directionPositions.east) &&
+      coords.x !== this.mazeWidth && // At an edge
+      !this.maze[position + 1].includes('west') // There's a wall
     ) {
       possibleDirectionPositions.push(directionPositions.east); // east is available
     }
     if (
-      directionPositions.south !== this.domokunPosition &&
-      coords.y !== -this.mazeHeight &&
-      !this.maze[position + this.mazeWidth].includes('north')
+      !invalidPositions.includes(directionPositions.south) &&
+      coords.y !== -this.mazeHeight && // At an edge
+      !this.maze[position + this.mazeWidth].includes('north') // There's a wall
     ) {
       possibleDirectionPositions.push(directionPositions.south); // south is available
     }
     if (
-      directionPositions.west !== this.domokunPosition &&
-      coords.x !== 1 &&
-      !this.maze[position].includes('west')
+      !invalidPositions.includes(directionPositions.west) &&
+      coords.x !== 1 && // At an edge
+      !this.maze[position].includes('west') // There's a wall
     ) {
       possibleDirectionPositions.push(directionPositions.west); // west is available
     }
     return possibleDirectionPositions;
   }
 
-  getOffset(coords1: CoordinatePair, coords2: CoordinatePair) {
+  getOffset(position1: number, position2: number) {
+    const coords1 = this.positionToCoordinates(position1),
+      coords2 = this.positionToCoordinates(position2);
     return {
       x: coords1.x - coords2.x,
       y: coords1.y - coords2.y,
     };
   }
 
+  getHeuristic(position1: number, position2: number) {
+    // Heuristic is the Manhattan Distance (taxicab metric).
+    const offset = this.getOffset(position1, position2);
+    return Math.abs(offset.x) + Math.abs(offset.y);
+  }
+
   getRelativeDirection(position1: number, position2: number) {
     const coords1 = this.positionToCoordinates(position1),
       coords2 = this.positionToCoordinates(position2);
-    const offset = this.getOffset(coords1, coords2);
+    const offset = this.getOffset(position1, position2);
+    // Heuristic is the Manhattan Distance ()
     if (Math.abs(offset.x) !== 1 && Math.abs(offset.y) !== 1) {
       throw new Error(
         RedFg(
@@ -256,40 +295,91 @@ export default class PonySaver {
       return 'north';
     }
   }
-  getNextPathStep(currPath: Path) {
-    const currPosition = currPath.length
-      ? currPath[currPath.length - 1]
-      : this.ponyPosition;
-    const currPositionCoords = this.positionToCoordinates(currPosition);
-    const endPointCoords = this.positionToCoordinates(this.endPoint);
-    const offset = this.getOffset(currPositionCoords, endPointCoords);
 
-    if (offset.y <= 0) {
-      // endpoint is north or parallel
+  /**
+   * This function uses the A* Search Algorithm to find the shortest path through the maze.
+   * It assigns relative value (f(x)) to subsequent nodes by virtue of g(x) and h(x)
+   *
+   * g(x): the cost of the path from the start node to x
+   * h(x): the heuristic function that estimates the cost of the cheapest path from x to the goal (in
+   *       our case, the Manhattan Distance)
+   *
+   * See:
+   * - https://en.wikipedia.org/wiki/A*_search_algorithm
+   * - https://briangrinstead.com/blog/astar-search-algorithm-in-javascript/
+   */
+  findPath() {
+    const openNodes: GridNode[] = [];
+    const closedNodes: GridNode[] = [];
+    openNodes.push(new GridNode(this.ponyPosition));
+    while (openNodes.length) {
+      // Sort openNodes array ascending by fx, which defines the 'best' node for this round
+      openNodes.sort((a, b) => a.fx - b.fx);
+
+      // Grab the current not, removing it from `openNodes`
+      const currNode = openNodes.shift();
+
+      if (!currNode) {
+        throw new Error('Somehow the openNodes stack was empty...');
+      }
+
+      // End case: result has been found, return the traced path
+      if (currNode.position === this.endPoint) {
+        let curr = currNode;
+        let result = [];
+        while (curr.parent) {
+          result.push(curr.position);
+          curr = curr.parent;
+        }
+
+        return result.reverse();
+      }
+
+      // Normal case: add the currNode to the `closedNodes`, process each of the possible movements
+      closedNodes.push(currNode);
+      const possiblePositions = this.findValidNextPositions(currNode.position);
+
+      for (let possiblePosition of possiblePositions) {
+        // skip already-visited nodes (if we already encountered it, that was the best)
+        if (closedNodes.some((node) => node.position === possiblePosition)) {
+          continue;
+        }
+
+        // g(x) is the shortest distance from the start node to the current node. We must
+        // check if the path we have arrived at for this possiblePosition is the shortest
+        // one we have seen yet.
+        const gx = currNode.gx + 1;
+        let gxIsBest = false;
+
+        // See if we have visited this position before
+        const visitedNode = openNodes.find(
+          (node) => node.position === possiblePosition
+        );
+        if (!visitedNode) {
+          // If not in `openNodes`, we have not encountered it before. It must be the best.
+          gxIsBest = true;
+          // Must also add a heuristic score since we haven't done so yet.
+          const hx = this.getHeuristic(possiblePosition, this.endPoint);
+          openNodes.push(new GridNode(possiblePosition, currNode, gx, hx));
+        } else if (gx < visitedNode.gx) {
+          // We have seen the node before, but we have a better g(x) (distance from start) than we got before
+          gxIsBest = true;
+        }
+
+        if (gxIsBest) {
+          // Determine if we should be modifying the preexisting node, or the one we just created
+          const currStepNode = visitedNode
+            ? visitedNode
+            : openNodes[openNodes.length - 1];
+          currStepNode.parent = currNode;
+          currStepNode.gx = gx;
+          currStepNode.fx = currStepNode.gx + currStepNode.hx;
+        }
+      }
     }
-    if (offset.y > 0) {
-      // endpoint is south
-    }
 
-    const validDirections = this.findValidNextPositions(currPosition);
-  }
-
-  findPaths() {
-    console.log(
-      'Pony location',
-      this.positionToCoordinates(this.ponyPosition),
-      this.maze[this.ponyPosition]
-    );
-    console.log(
-      'End location',
-      this.positionToCoordinates(this.endPoint),
-      this.maze[this.endPoint]
-    );
-    console.log(
-      'Domokun location',
-      this.positionToCoordinates(this.domokunPosition),
-      this.maze[this.domokunPosition]
-    );
+    // No result found
+    return [];
   }
 
   chooseNextMove() {

@@ -25,3 +25,24 @@ export type ValidDirections = {
 };
 
 export type Path = number[];
+
+export class GridNode {
+  position: number;
+  gx: number;
+  hx: number;
+  fx: number;
+  parent: GridNode | null;
+
+  constructor(
+    position: number,
+    parent: GridNode | null = null,
+    gx = Infinity,
+    hx = Infinity
+  ) {
+    this.position = position;
+    this.parent = parent;
+    this.gx = gx;
+    this.hx = hx;
+    this.fx = gx + hx;
+  }
+}
