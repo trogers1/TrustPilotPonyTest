@@ -23,3 +23,5 @@ export type ValidDirections = {
   east: boolean;
   west: boolean;
 };
+
+export type Path = number[];

@@ -10,6 +10,7 @@ import {
   MazeResponse,
   CoordinatePair,
   ValidDirections,
+  Path,
 } from './types';
 
 /* Handle:
@@ -127,16 +128,6 @@ export default class PonySaver {
    * @returns A CoordinatePair that has zero-based coordinates
    */
   positionToCoordinates(position: number): CoordinatePair {
-    /*
-    Formulas for finding P (position), X and Y
-    Origin of grid is in the top left.
-    Y axis starts at top left, descending by 1 for each row downward
-    X axis starts at the top left and ascending by 1 for each column to the right
-
-    X = P % mazeWidth
-    Y = -1 * (((P - (X - 1)) / mazeWidth) + 1)
-    P = (X - 1) + (-Y - 1) * mazeWidth
-    */
     if (!this.maze) {
       throw new Error(
         'Cannot calculate coordinates without a maze. Please set maze data.'
@@ -146,7 +137,7 @@ export default class PonySaver {
       throw new PositionError(position, this.maze.length);
     }
     const x = (position % this.mazeWidth) + 1;
-    const y = Math.ceil(-1 * ((position - (x - 1)) / this.mazeWidth + 1));
+    const y = -1 * ((position - (x - 1)) / this.mazeWidth + 1);
     return {
       y,
       x,
@@ -187,7 +178,7 @@ export default class PonySaver {
     return x - 1 + (-y - 1) * this.mazeWidth;
   }
 
-  findValidDirections(position: number): ValidDirections {
+  findValidNextPositions(position: number): number[] {
     if (position < 0 || position >= this.maze.length) {
       throw new PositionError(position, this.maze.length);
     }
@@ -198,53 +189,50 @@ export default class PonySaver {
       east: position + 1,
       west: position - 1,
     };
-    let isDomokunPosition: ValidDirections = {
-      north: false,
-      south: false,
-      east: false,
-      west: false,
-    };
-    switch (this.domokunPosition) {
-      case directionPositions.north:
-        isDomokunPosition.north = true;
-        break;
-      case directionPositions.south:
-        isDomokunPosition.south = true;
-        break;
-      case directionPositions.east:
-        isDomokunPosition.east = true;
-        break;
-      case directionPositions.west:
-        isDomokunPosition.west = true;
-        break;
+    const possibleDirectionPositions = [];
+    if (
+      directionPositions.north !== this.domokunPosition &&
+      coords.y !== -1 &&
+      !this.maze[position].includes('north')
+    ) {
+      possibleDirectionPositions.push(directionPositions.north); // north is available
     }
+    if (
+      directionPositions.east !== this.domokunPosition &&
+      coords.x !== this.mazeWidth &&
+      !this.maze[position + 1].includes('west')
+    ) {
+      possibleDirectionPositions.push(directionPositions.east); // east is available
+    }
+    if (
+      directionPositions.south !== this.domokunPosition &&
+      coords.y !== -this.mazeHeight &&
+      !this.maze[position + this.mazeWidth].includes('north')
+    ) {
+      possibleDirectionPositions.push(directionPositions.south); // south is available
+    }
+    if (
+      directionPositions.west !== this.domokunPosition &&
+      coords.x !== 1 &&
+      !this.maze[position].includes('west')
+    ) {
+      possibleDirectionPositions.push(directionPositions.west); // west is available
+    }
+    return possibleDirectionPositions;
+  }
 
+  getOffset(coords1: CoordinatePair, coords2: CoordinatePair) {
     return {
-      north:
-        isDomokunPosition.north || coords.y === -1
-          ? false
-          : !this.maze[position].includes('north'),
-      south:
-        isDomokunPosition.south || coords.y === -this.mazeHeight
-          ? false
-          : !this.maze[position + this.mazeWidth].includes('north'),
-      east:
-        isDomokunPosition.east || coords.x === this.mazeHeight
-          ? false
-          : !this.maze[position + 1].includes('west'),
-      west:
-        isDomokunPosition.west || coords.x === 1
-          ? false
-          : !this.maze[position].includes('west'),
+      x: coords1.x - coords2.x,
+      y: coords1.y - coords2.y,
     };
   }
 
   getRelativeDirection(position1: number, position2: number) {
     const coords1 = this.positionToCoordinates(position1),
       coords2 = this.positionToCoordinates(position2);
-    const diffX = coords1.x - coords2.x,
-      diffY = coords1.y - coords2.y;
-    if (Math.abs(diffX) !== 1 && Math.abs(diffY) !== 1) {
+    const offset = this.getOffset(coords1, coords2);
+    if (Math.abs(offset.x) !== 1 && Math.abs(offset.y) !== 1) {
       throw new Error(
         RedFg(
           `Relative Directions are only calculated for adjacent positions. \nPosition 1: ${RedFg_Bright(
@@ -255,20 +243,36 @@ export default class PonySaver {
         )
       );
     }
-    if (diffX === 1) {
+    if (offset.x === 1) {
       return 'west';
     }
-    if (diffX === -1) {
+    if (offset.x === -1) {
       return 'east';
     }
-    if (diffY === 1) {
+    if (offset.y === 1) {
       return 'south';
     }
-    if (diffY === -1) {
+    if (offset.y === -1) {
       return 'north';
     }
   }
-  getNextPathStep() {}
+  getNextPathStep(currPath: Path) {
+    const currPosition = currPath.length
+      ? currPath[currPath.length - 1]
+      : this.ponyPosition;
+    const currPositionCoords = this.positionToCoordinates(currPosition);
+    const endPointCoords = this.positionToCoordinates(this.endPoint);
+    const offset = this.getOffset(currPositionCoords, endPointCoords);
+
+    if (offset.y <= 0) {
+      // endpoint is north or parallel
+    }
+    if (offset.y > 0) {
+      // endpoint is south
+    }
+
+    const validDirections = this.findValidNextPositions(currPosition);
+  }
 
   findPaths() {
     console.log(
