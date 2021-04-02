@@ -14,7 +14,7 @@ Simply run `npm start` to start the script. You will be prompted for several inp
 
 Tests were written using the `mocha` testing framework. Simply run `npm test` to run the test suite.
 
-> Note: The tests are not quite as complete as I'd like. I ran out of time at the end and had to skip some test writing for expediency.
+> Note: The tests are not quite as complete as I'd like. I ran out of time at the end and had to skip some test writing for expediency. Specifically, I would have like to test `index.ts` and `PonySaver.makeMove()` among other things.
 
 ## Questions
 
