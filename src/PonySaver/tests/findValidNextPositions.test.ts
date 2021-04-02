@@ -84,7 +84,8 @@ describe('PonySaver.findValidNextPositions()', () => {
       mazeRunner.coordinatesToPosition({ x: 2, y: -mazeHeight }),
     ]);
     validPositions = mazeRunner.findValidNextPositions(
-      mazeRunner.domokunPosition
+      mazeRunner.domokunPosition,
+      true
     );
     assert.deepStrictEqual(validPositions, [
       mazeRunner.domokunPosition + mazeWidth,
@@ -96,7 +97,7 @@ describe('PonySaver.findValidNextPositions()', () => {
       mazeRunner.endPoint + mazeWidth,
     ]);
   });
-  it('Should correctly determine valid directions when next to Domokun', () => {
+  it('Should correctly determine valid directions when next to Domokun (giving Domokun a 1-space birth)', () => {
     let mazeHeight = 3;
     let mazeWidth = 3;
     let mazeRunner = new PonySaver('Morning Glory', mazeHeight, mazeWidth, 1);
@@ -133,6 +134,11 @@ describe('PonySaver.findValidNextPositions()', () => {
       mazeRunner.coordinatesToPosition({ x: 2, y: -2 })
     );
     assert.deepStrictEqual(validPositions, [1, 5, 3]);
+    // check that we see a valid move that is adjacent to domokun, but not a valid domokun move (i.e. blocked by a wall)
+    mazeRunner.domokunPosition = 4; // centred
+    mazeRunner.maze[4] = ['west']; // center cell has a west wall
+    validPositions = mazeRunner.findValidNextPositions(6); // bottom left corner
+    assert.deepStrictEqual(validPositions, [3]); // The only valid position is behind the wall in position 3
   });
   it('Should correctly throw an error when position is invalid', () => {
     const mazeHeight = 3;
